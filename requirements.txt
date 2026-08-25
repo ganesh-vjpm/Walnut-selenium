@@ -1,0 +1,193 @@
+# Walnut Selenium Automation Framework - Dependency Requirements
+# ============================================================================
+# This project uses Apache Maven. All dependencies are declared in pom.xml.
+# This file is a human-readable reference of what each dependency does and
+# how to manage them.
+
+# ----------------------------------------------------------------------------
+# 1. CORE DEPENDENCIES (must-have for Selenium + TestNG)
+# ----------------------------------------------------------------------------
+
+# Selenium WebDriver for browser automation
+org.seleniumhq.selenium:selenium-java:4.47.0
+  -> Purpose: Controls Chrome, Firefox, Edge browsers.
+  -> How to add: Already in pom.xml under <!-- SELENIUM -->.
+  -> Docs: https://www.selenium.dev/documentation/
+
+# TestNG testing framework
+org.testng:testng:7.9.0
+  -> Purpose: Runs tests, provides annotations (@Test, @BeforeMethod, etc.).
+  -> Scope: test (only available in src/test/java).
+  -> How to add: Already in pom.xml under <!-- TESTNG -->.
+  -> Docs: https://testng.org/doc/
+
+# ----------------------------------------------------------------------------
+# 2. ASSERTION LIBRARIES
+# ----------------------------------------------------------------------------
+
+# Fluent assertions for readable test validation
+org.assertj:assertj-core:3.27.7
+  -> Purpose: assertThat(actual).isEqualTo(expected) style assertions.
+  -> Scope: test
+
+# Matcher library (alternative assertion style)
+org.hamcrest:hamcrest:3.0
+  -> Purpose: assertThat(actual, is(expected)) style assertions.
+  -> Scope: test
+
+# ----------------------------------------------------------------------------
+# 3. LOGGING
+# ----------------------------------------------------------------------------
+
+# SLF4J API (logging facade used by Selenium and framework)
+org.slf4j:slf4j-api:2.0.17
+
+# Logback implementation (writes logs to console and file)
+ch.qos.logback:logback-classic:1.5.18
+  -> Config: src/test/resources/logback.xml
+
+# ----------------------------------------------------------------------------
+# 4. REPORTING
+# ----------------------------------------------------------------------------
+
+# ExtentReports - HTML test reports with screenshots
+com.aventstack:extentreports:5.1.2
+  -> Used by: ExtentReportListener.java
+  -> Output: reports/ExtentReport.html
+
+# Allure Reports (alternative reporting, optional)
+io.qameta.allure:allure-testng:2.29.1
+  -> Can be enabled by adding Allure listener to testng.xml.
+
+# ----------------------------------------------------------------------------
+# 5. DATA HANDLING
+# ----------------------------------------------------------------------------
+
+# Jackson - JSON parsing
+com.fasterxml.jackson.core:jackson-databind:2.20.0
+
+# Gson - JSON parsing (alternative)
+com.google.code.gson:gson:2.13.1
+
+# SnakeYAML - YAML parsing
+org.yaml:snakeyaml:2.4
+
+# Apache POI - Microsoft Excel read/write
+org.apache.poi:poi-ooxml:5.4.1
+  -> Used by: ExcelUtils.java
+
+# Apache Commons IO - file utilities
+commons-io:commons-io:2.20.0
+
+# ----------------------------------------------------------------------------
+# 6. API TESTING (for hybrid UI + API tests)
+# ----------------------------------------------------------------------------
+
+# REST Assured - REST API automation
+io.rest-assured:rest-assured:6.0.0
+  -> Scope: test
+
+# ----------------------------------------------------------------------------
+# 7. DATABASE (optional)
+# ----------------------------------------------------------------------------
+
+# MySQL JDBC driver
+com.mysql:mysql-connector-j:9.4.0
+
+# PostgreSQL JDBC driver
+org.postgresql:postgresql:42.7.7
+
+# Hibernate ORM
+org.hibernate.orm:hibernate-core:7.1.0.Final
+
+# JPA API
+jakarta.persistence:jakarta.persistence-api:3.2.0
+
+# ----------------------------------------------------------------------------
+# 8. BDD (optional)
+# ----------------------------------------------------------------------------
+
+# Cucumber for Java
+io.cucumber:cucumber-java:7.27.2
+  -> Scope: test
+
+# Cucumber + TestNG integration
+io.cucumber:cucumber-testng:7.27.2
+  -> Scope: test
+
+# ----------------------------------------------------------------------------
+# 9. UTILITIES
+# ----------------------------------------------------------------------------
+
+# WebDriverManager (kept for compatibility; Selenium 4 has Selenium Manager)
+io.github.bonigarcia:webdrivermanager:6.3.4
+
+# Lombok - reduces boilerplate code
+org.projectlombok:lombok:1.18.38
+  -> Scope: provided
+
+# ----------------------------------------------------------------------------
+# 10. HOW TO ADD A NEW DEPENDENCY
+# ----------------------------------------------------------------------------
+#
+# Step 1: Find the Maven coordinates at https://mvnrepository.com/
+#         Example: groupId, artifactId, version
+#
+# Step 2: Open pom.xml and add inside <dependencies>...</dependencies>:
+#
+#         <dependency>
+#             <groupId>com.example</groupId>
+#             <artifactId>example-library</artifactId>
+#             <version>1.0.0</version>
+#             <scope>test</scope>    <!-- use "test" for test-only code -->
+#         </dependency>
+#
+# Step 3: Optionally define a version property in <properties>:
+#
+#         <example.version>1.0.0</example.version>
+#
+#         and use it as:
+#
+#         <version>${example.version}</version>
+#
+# Step 4: Save pom.xml. Maven will download the dependency automatically.
+#
+# Step 5: Verify with:
+#
+#         mvn clean compile test-compile
+
+# ----------------------------------------------------------------------------
+# 11. HOW TO UPDATE A VERSION
+# ----------------------------------------------------------------------------
+#
+# Change the version number in <properties> in pom.xml, for example:
+#
+#     <selenium.version>4.48.0</selenium.version>
+#
+# Then run:
+#
+#     mvn clean compile test-compile
+
+# ----------------------------------------------------------------------------
+# 12. HOW TO CHECK DOWNLOADED DEPENDENCIES
+# ----------------------------------------------------------------------------
+#
+# Command:
+#     mvn dependency:tree
+#
+# This prints all resolved dependencies and their transitive dependencies.
+
+# ----------------------------------------------------------------------------
+# 13. SCOPE MEANINGS
+# ----------------------------------------------------------------------------
+#
+# compile   -> Available everywhere (main + test). Default scope.
+# test      -> Only available in src/test/java and test execution.
+# provided  -> Available at compile time, but provided at runtime (e.g., Lombok).
+# runtime   -> Not needed at compile time, but needed at runtime.
+
+# ============================================================================
+# IMPORTANT: This file is for reference only. The actual dependency management
+# is done by Maven through pom.xml. Do not delete or edit pom.xml unless you
+# understand Maven dependency resolution.
+# ============================================================================
