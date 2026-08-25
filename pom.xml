@@ -437,7 +437,7 @@
                     <suiteXmlFiles>
 
                         <suiteXmlFile>
-                            testng.xml
+                            ${project.basedir}/src/test/resources/testng.xml
                         </suiteXmlFile>
 
                     </suiteXmlFiles>
