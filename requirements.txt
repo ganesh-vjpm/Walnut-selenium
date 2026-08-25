@@ -186,6 +186,33 @@ org.projectlombok:lombok:1.18.38
 # provided  -> Available at compile time, but provided at runtime (e.g., Lombok).
 # runtime   -> Not needed at compile time, but needed at runtime.
 
+# ----------------------------------------------------------------------------
+# 14. CONFIGURATION AND ENVIRONMENT VARIABLES
+# ----------------------------------------------------------------------------
+#
+# ConfigManager (src/main/java/com/walnut/automation/config/ConfigManager.java)
+# resolves values in this priority order:
+#
+#   1. Java system property   -> -Dbase.url=https://your-app.com
+#   2. OS environment variable -> BASE_URL=https://your-app.com
+#   3. Properties file         -> config/qa.properties
+#
+# The active environment is selected by:
+#   - system property: -Denvironment=uat
+#   - env variable:    ENVIRONMENT=uat
+#   - default:         qa
+#
+# Environment variable naming:
+#   - For keys without dots: use the same uppercase name, e.g., BROWSER=firefox
+#   - For keys with dots: use uppercase with underscores, e.g., BASE_URL=...
+#
+# Example GitHub Actions usage:
+#   env:
+#     ENVIRONMENT: qa
+#     BROWSER: chrome
+#     HEADLESS: true
+#     MAX_RETRIES: 1
+
 # ============================================================================
 # IMPORTANT: This file is for reference only. The actual dependency management
 # is done by Maven through pom.xml. Do not delete or edit pom.xml unless you

@@ -8,6 +8,7 @@ import com.aventstack.extentreports.reporter.ExtentSparkReporter;
 import com.aventstack.extentreports.reporter.configuration.Theme;
 import com.walnut.automation.actions.SeleniumActions;
 import com.walnut.automation.base.BaseTest;
+import com.walnut.automation.config.ConfigManager;
 import org.testng.ITestContext;
 import org.testng.ITestListener;
 import org.testng.ITestResult;
@@ -47,8 +48,8 @@ public class ExtentReportListener implements ITestListener {
         extent = new ExtentReports();
         extent.attachReporter(sparkReporter);
         extent.setSystemInfo("Project", "Walnut Automation");
-        extent.setSystemInfo("Environment", System.getProperty("environment", "qa"));
-        extent.setSystemInfo("Browser", System.getProperty("browser", "chrome"));
+        extent.setSystemInfo("Environment", ConfigManager.getEnvironment());
+        extent.setSystemInfo("Browser", ConfigManager.get("browser", "chrome"));
         extent.setSystemInfo("OS", System.getProperty("os.name"));
     }
 

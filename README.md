@@ -72,9 +72,13 @@ walnut_v2/
     │   │   └── DriverFactory.java              # Creates WebDriver instances
     │   │
     │   ├── pages/
-    │   │   └── LoginPage.java                  # Page Object for Login page
+    │   │   ├── LoginPage.java                  # Page Object for Sign In page
+    │   │   ├── OrganizationPage.java           # Page Object for Select Organization page
+    │   │   └── PasswordPage.java               # Page Object for Enter Password page
     │   │
     │   └── utils/
+    │       ├── ExcelConfigManager.java         # Reads config from Excel per environment
+    │       ├── ExcelConfigGenerator.java       # Generates sample EnvironmentConfig.xlsx
     │       └── ExcelUtils.java                 # Excel test-data reader example
     │
     ├── test/java/com/walnut/automation/
@@ -94,11 +98,15 @@ walnut_v2/
         │
         ├── config/
         │   ├── qa.properties                   # QA environment settings
-        │   └── uat.properties                  # UAT environment settings
+        │   ├── uat.properties                  # UAT environment settings
+        │   └── prod.properties                 # Production environment settings
         │
         ├── logback.xml                         # Logging configuration
         │
-        └── testng.xml                          # TestNG suite configuration
+        ├── testng.xml                          # TestNG suite configuration
+        │
+        └── testdata/
+            └── EnvironmentConfig.xlsx          # Excel config: one sheet per environment
 ```
 
 ### Why this structure?
@@ -171,17 +179,27 @@ Every page object uses `actions.click(...)`, `actions.type(...)`, etc. If you
 want to change the default wait time or add logging, you change it here once.
 
 #### `config/ConfigManager.java`
-Loads environment-specific properties from `src/test/resources/config/`.
+Loads environment-specific configuration from properties files or an Excel workbook.
 
 What it does:
-- Reads the `environment` system property (default `qa`).
+- Resolves the active environment from system property, OS environment variable,
+  or default (`qa`).
 - Loads the matching file, e.g., `qa.properties`.
-- Provides `get(key)`, `get(key, defaultValue)`, and `getInt(key)` methods.
-- System properties override file values.
+- Falls back to `src/test/resources/testdata/EnvironmentConfig.xlsx` if a key is
+  not found in the properties file.
+- Provides `get(key)`, `get(key, defaultValue)`, `getInt(key)`, and
+  `getEnvironment()` methods.
+- Value priority (highest to lowest):
+  1. Java system property (`-Dkey=value`)
+  2. OS environment variable (`KEY=value` or `key=value`)
+  3. Properties file (`qa.properties`, `uat.properties`, etc.)
+  4. Excel workbook (`testdata/EnvironmentConfig.xlsx`)
 
 Why it matters:
 You can run the same tests against QA, UAT, or Prod just by changing
-`-Denvironment=uat`.
+`-Denvironment=uat` or setting the `ENVIRONMENT` environment variable. You can
+also keep all sensitive credentials in a single Excel file with one sheet per
+environment instead of multiple `.properties` files.
 
 #### `factory/DriverFactory.java`
 Creates WebDriver instances.
@@ -293,10 +311,14 @@ QA environment values:
 - `base.url` — application URL.
 - `browser`, `headless` — defaults.
 - `implicit.wait`, `explicit.wait` — timeouts.
-- `login.email`, `login.success.url.fragment` — test data.
+- `login.email`, `login.password`, `login.organization`, `login.success.url.fragment` — test data.
 
 #### `config/uat.properties`
 Same keys as `qa.properties` but with UAT values.
+
+#### `config/prod.properties`
+Same keys as `qa.properties` but with production values.
+Use with `-Denvironment=prod` or `-Pprod`.
 
 #### `logback.xml`
 Logging configuration.
@@ -413,7 +435,8 @@ This class wraps all Selenium commands. Start with simple methods like `click`,
 Create `src/main/java/com/walnut/automation/config/ConfigManager.java`.
 This reads `.properties` files from `src/test/resources/config/`.
 
-Create `src/test/resources/config/qa.properties` and `uat.properties`.
+Create `src/test/resources/config/qa.properties`, `uat.properties`, and
+`prod.properties`.
 
 ### Step 6: Create the driver factory
 
@@ -622,19 +645,48 @@ mvn test -Dmax.retries=2
 
 Failed tests will be retried up to 2 additional times.
 
-### 6.7 Run a specific test class
+### 6.7 Run using OS environment variables
+
+On Linux/Mac:
+
+```bash
+export ENVIRONMENT=uat
+export BROWSER=firefox
+export HEADLESS=true
+mvn test
+```
+
+On Windows CMD:
+
+```cmd
+set ENVIRONMENT=uat
+set BROWSER=firefox
+set HEADLESS=true
+mvn test
+```
+
+On Windows PowerShell:
+
+```powershell
+$env:ENVIRONMENT="uat"
+$env:BROWSER="firefox"
+$env:HEADLESS="true"
+mvn test
+```
+
+### 6.8 Run a specific test class
 
 ```bash
 mvn test -Dtest=LoginTest
 ```
 
-### 6.8 Run a specific test method
+### 6.9 Run a specific test method
 
 ```bash
-mvn test -Dtest=LoginTest#verifyLoginPageLoads
+mvn test -Dtest=LoginTest#verifySignInPageLoads
 ```
 
-### 6.9 Run with Maven profile
+### 6.10 Run with Maven profile
 
 ```bash
 mvn test -Pheadless
@@ -642,13 +694,13 @@ mvn test -Puat
 mvn test -Pfirefox
 ```
 
-### 6.10 Compile only (no tests)
+### 6.11 Compile only (no tests)
 
 ```bash
 mvn clean compile test-compile
 ```
 
-### 6.11 View the report
+### 6.12 View the report
 
 After any run, open:
 
@@ -957,13 +1009,23 @@ Each method waits for the element to be ready before acting.
 
 | Method | What it does |
 |--------|--------------|
-| `get(String key)` | Returns property value; system property overrides file value. |
+| `get(String key)` | Returns value using system property > env variable > properties file > Excel fallback priority. |
 | `get(String key, String defaultValue)` | Returns value or default if missing. |
 | `getInt(String key)` | Returns value parsed as integer. |
+| `getEnvironment()` | Returns the active environment name (qa, uat, prod, etc.). |
 
 ---
 
-### 8.3 `DriverFactory` methods
+### 8.3 `ExcelConfigManager` methods
+
+| Method | What it does |
+|--------|--------------|
+| `get(String key)` | Reads the value for the active environment sheet in the default Excel file. |
+| `get(String resourcePath, String sheetName, String key)` | Reads the value from a specific Excel resource and sheet. |
+
+---
+
+### 8.4 `DriverFactory` methods
 
 | Method | What it does |
 |--------|--------------|
@@ -974,7 +1036,7 @@ Each method waits for the element to be ready before acting.
 
 ---
 
-### 8.4 `BaseTest` methods
+### 8.5 `BaseTest` methods
 
 | Method | What it does |
 |--------|--------------|
@@ -985,29 +1047,60 @@ Each method waits for the element to be ready before acting.
 
 ---
 
-### 8.5 `LoginPage` methods
+### 8.6 `LoginPage` methods
 
 | Method | What it does |
 |--------|--------------|
 | `LoginPage(SeleniumActions actions)` | Constructor: receives actions wrapper. |
-| `isLogoDisplayed()` | Returns true if logo is visible. |
-| `isSignInTextDisplayed()` | Returns true if Sign In text is visible. |
-| `enterEmail(String email)` | Types email into email input. |
-| `clickContinue()` | Clicks the continue/submit button. |
-| `loginWithEmail(String email)` | Types email and clicks continue in one call. |
+| `isLogoDisplayed()` | Returns true if WalnutAI logo is visible. |
+| `isSignInTextDisplayed()` | Returns true if Sign In heading is visible. |
+| `isEmailLabelDisplayed()` | Returns true if Email label is visible. |
+| `isEmailInputDisplayed()` | Returns true if email input field is visible. |
+| `enterEmail(String email)` | Types email into the email input field. |
+| `clickContinue()` | Clicks the Continue button. |
+| `loginWithEmail(String email)` | Types email and clicks Continue in one call. |
+| `isWelcomeToastDisplayed()` | Waits for Welcome to toast to appear, then returns true if visible. |
+| `getWelcomeToastText()` | Waits for Welcome to toast and returns its text. |
 
 ---
 
-### 8.6 `LoginTest` methods
+### 8.7 `OrganizationPage` methods
 
 | Method | What it does |
 |--------|--------------|
-| `verifyLoginPageLoads()` | Verifies logo and Sign In text are displayed. |
-| `loginWithValidEmail()` | Enters email, clicks continue, verifies URL changed. |
+| `OrganizationPage(SeleniumActions actions)` | Constructor: receives actions wrapper. |
+| `isAtOrganizationPage()` | Returns true if the Select Organization heading is visible. |
+| `selectOrganization(String orgName)` | Clicks the button for the given organization name. |
 
 ---
 
-### 8.7 Listener methods
+### 8.8 `PasswordPage` methods
+
+| Method | What it does |
+|--------|--------------|
+| `PasswordPage(SeleniumActions actions)` | Constructor: receives actions wrapper. |
+| `isAtPasswordPage()` | Returns true if the Enter Password heading is visible. |
+| `isOrganizationNameDisplayed(String orgName)` | Waits for the expected organization name to appear, then returns true. |
+| `isEmailDisplayed(String email)` | Waits for the expected email to appear, then returns true. |
+| `enterPassword(String password)` | Types password into the password field. |
+| `clickSignIn()` | Clicks the Sign In button. |
+| `signInWithPassword(String password)` | Types password and clicks Sign In. |
+| `isWelcomeBackDisplayed()` | Waits for Welcome back heading and returns true if visible. |
+| `getWelcomeBackText()` | Waits for Welcome back heading and returns its text. |
+
+---
+
+### 8.9 `LoginTest` methods
+
+| Method | What it does |
+|--------|--------------|
+| `verifySignInPageLoads()` | Verifies logo, Sign In text, Email label, and Email input are displayed. |
+| `signInWithValidEmail()` | Enters configured email, clicks Continue, verifies Welcome toast. |
+| `completeLoginFlow()` | Full end-to-end login including organization selection, password, and welcome back. |
+
+---
+
+### 8.10 Listener methods
 
 #### `ExtentReportListener`
 
@@ -1082,7 +1175,7 @@ The report engine starts:
 
 ### 9.6 Before each test method
 
-For `LoginTest.verifyLoginPageLoads`:
+For `LoginTest.verifySignInPageLoads`:
 
 1. TestNG calls `ExtentReportListener.onTestStart`.
    - A new `ExtentTest` node is created.
@@ -1092,12 +1185,15 @@ For `LoginTest.verifyLoginPageLoads`:
    - `SeleniumActions` is created with the driver.
    - `actions.maximizeWindow()` is called.
    - `actions.navigateTo(ConfigManager.get("base.url"))` is called.
-   - `ConfigManager` reads `src/test/resources/config/qa.properties`.
-   - Browser navigates to `https://app.walnutai.com`.
+   - `ConfigManager` resolves the value using priority:
+     - system property (`-Dbase.url=...`)
+     - environment variable (`BASE_URL=...`)
+     - `src/test/resources/config/qa.properties`
+   - Browser navigates to the resolved URL.
 
 ### 9.7 Test body
 
-`LoginTest.verifyLoginPageLoads` runs:
+`LoginTest.verifySignInPageLoads` runs:
 
 ```java
 LoginPage loginPage = new LoginPage(actions);
@@ -1183,7 +1279,7 @@ For each @Test method:
   +-- BaseTest.setUp
   |       +-- DriverFactory -> WebDriver
   |       +-- SeleniumActions
-  |       +-- ConfigManager -> qa.properties
+  |       +-- ConfigManager -> system prop / env var / qa.properties
   |       +-- navigateTo(base.url)
   |
   +-- Test method body
@@ -1221,18 +1317,70 @@ Each environment file uses the same keys.
 | `explicit.wait` | `15` | Default explicit wait in seconds. |
 | `screenshot.folder` | `screenshots` | Folder for screenshots. |
 | `login.email` | `test@example.com` | Test email. |
+| `login.password` | `Ganesh@2001` | Test password. |
+| `login.organization` | `walnut-test` | Organization name for selection. |
 | `login.success.url.fragment` | `verify` | Expected URL fragment after login. |
 
-### 10.2 System property overrides
+### 10.2 System property and environment variable overrides
 
-| Property | How to use |
-|----------|------------|
-| `environment` | `-Denvironment=uat` |
-| `browser` | `-Dbrowser=firefox` |
-| `headless` | `-Dheadless=true` |
-| `max.retries` | `-Dmax.retries=2` |
+Config values can be overridden at runtime using either Java system properties
+or OS environment variables.
 
-### 10.3 Maven profiles
+**Precedence (highest to lowest):**
+1. Java system property: `-Dkey=value`
+2. OS environment variable: `KEY=value` or `key=value`
+3. Properties file: `config/qa.properties`
+4. Excel workbook: `testdata/EnvironmentConfig.xlsx`
+
+For properties with dots (e.g., `base.url`), the environment variable name can
+also use uppercase with underscores: `BASE_URL`.
+
+| Property | System property | Environment variable |
+|----------|-----------------|----------------------|
+| `environment` | `-Denvironment=uat` | `ENVIRONMENT=uat` |
+| `browser` | `-Dbrowser=firefox` | `BROWSER=firefox` |
+| `headless` | `-Dheadless=true` | `HEADLESS=true` |
+| `max.retries` | `-Dmax.retries=2` | `MAX_RETRIES=2` |
+| `base.url` | `-Dbase.url=https://...` | `BASE_URL=https://...` |
+
+### 10.3 Excel configuration workbook
+
+You can keep all environment-specific values in a single Excel file instead of
+multiple `.properties` files.
+
+**File:** `src/test/resources/testdata/EnvironmentConfig.xlsx`
+
+**Structure:**
+- One sheet per environment: `qa`, `uat`, `prod`
+- Each sheet has two columns: `Key`, `Value`
+
+**Example `qa` sheet:**
+
+| Key | Value |
+|-----|-------|
+| `base.url` | `https://qa.wnut.ai/login` |
+| `login.email` | `ganeshavjpm@gmail.com` |
+| `login.password` | `Ganesh@2001` |
+| `login.organization` | `walnut-test` |
+| `explicit.wait` | `15` |
+
+**How it works:**
+- `ConfigManager.get("login.password")` first checks system property, then
+  environment variable, then the active properties file.
+- If the key is still not found, it falls back to
+  `ExcelConfigManager.get("login.password")`, which reads the active environment
+  sheet from the workbook.
+
+**Regenerate the sample workbook:**
+
+```bash
+mvn compile dependency:build-classpath -Dmdep.outputFile=target/cp.txt
+powershell -Command "$cp = Get-Content target/cp.txt -Raw; java -cp \"target/classes;$cp\" com.walnut.automation.utils.ExcelConfigGenerator"
+```
+
+Or simply edit the existing `EnvironmentConfig.xlsx` directly in Excel.
+
+### 10.4 Maven profiles
 
 | Profile | Browser | Headless | Environment |
 |---------|---------|----------|-------------|
@@ -1283,7 +1431,7 @@ temporarily use `http://` for local testing.
 
 1. Run the specific test:
    ```bash
-   mvn test -Dtest=LoginTest#verifyLoginPageLoads
+   mvn test -Dtest=LoginTest#verifySignInPageLoads
    ```
 2. Open `reports/ExtentReport.html`.
 3. Check `logs/automation.log`.
@@ -1301,4 +1449,210 @@ temporarily use `http://` for local testing.
 - [ ] Run `mvn clean compile test-compile`.
 - [ ] Run `mvn test`.
 - [ ] Open `reports/ExtentReport.html`.
+
+---
+
+## 13. How to Debug Step by Step
+
+This section shows how to debug a failing or misbehaving test using the
+WalnutAI login test as an example.
+
+### 13.1 Before you start debugging
+
+Run the test once normally to see the failure:
+
+```bash
+mvn test -Dtest=LoginTest#signInWithValidEmail
+```
+
+Then open:
+- `reports/ExtentReport.html` — see the failure message and screenshot.
+- `logs/automation.log` — see the full execution trace.
+- `screenshots/` — see the page state at failure.
+
+### 13.2 Debug using an IDE (Eclipse or IntelliJ)
+
+#### Step 1: Set breakpoints
+
+Open `LoginTest.java` and click in the left margin next to these lines to set
+breakpoints:
+
+- Line `LoginPage loginPage = new LoginPage(actions);`
+- Line `String email = ConfigManager.get("login.email");`
+- Line `loginPage.loginWithEmail(email);`
+- Line `Assert.assertTrue(loginPage.isWelcomeToastDisplayed(), ...);`
+
+#### Step 2: Run in Debug mode
+
+**Eclipse:**
+1. Right-click `LoginTest.java`.
+2. Select **Debug As → TestNG Test**.
+
+**IntelliJ:**
+1. Right-click the `signInWithValidEmail` method.
+2. Select **Debug 'signInWithValidEmail()'**.
+
+The browser will open and pause at your first breakpoint.
+
+#### Step 3: Use debug controls
+
+| Button | What it does |
+|--------|--------------|
+| **Step Over (F6 / F8)** | Execute current line and move to next line. |
+| **Step Into (F5 / F7)** | Enter the method call on current line. |
+| **Step Out (F7 / Shift+F8)** | Finish current method and return to caller. |
+| **Resume (F8 / F9)** | Continue until next breakpoint. |
+| **Terminate** | Stop the test and close the browser. |
+
+#### Step 4: Inspect variables
+
+In the **Variables** panel, check:
+- `email` — should be `ganeshavjpm@gmail.com`.
+- `loginPage` — should show the `actions` reference.
+- `actions` — should show the `driver` reference.
+
+#### Step 5: Step into SeleniumActions
+
+When the execution reaches:
+
+```java
+loginPage.loginWithEmail(email);
+```
+
+Press **Step Into (F5/F7)**. You will enter `LoginPage.loginWithEmail()`.
+
+Press again to enter `actions.type(emailInput, email)`. This takes you into
+`SeleniumActions.java`. You can see exactly how the element is found and typed.
+
+### 13.3 Debug using logs
+
+Add temporary log statements in `LoginTest`:
+
+```java
+@Test
+public void signInWithValidEmail() {
+    LoginPage loginPage = new LoginPage(actions);
+    String email = ConfigManager.get("login.email");
+
+    System.out.println("DEBUG: email = " + email);
+    System.out.println("DEBUG: current URL before login = " + actions.getCurrentUrl());
+
+    loginPage.loginWithEmail(email);
+
+    System.out.println("DEBUG: current URL after login = " + actions.getCurrentUrl());
+    System.out.println("DEBUG: page source snippet = " + actions.getPageSource().substring(0, 500));
+
+    Assert.assertTrue(loginPage.isWelcomeToastDisplayed(),
+            "Welcome toast is not displayed after sign-in");
+}
+```
+
+Run the test and read the output in the console or `logs/automation.log`.
+
+Remove the debug logs after fixing the issue.
+
+### 13.4 Verify locators manually in the browser
+
+If a locator fails, open the real page in Chrome:
+
+```
+https://qa.wnut.ai/login
+```
+
+Press **F12** to open DevTools.
+
+In the **Console** tab, test your XPath:
+
+```javascript
+$x("//h1[text()='WalnutAI']")
+$x("//input[@placeholder='you@company.com']")
+$x("//div[text()='Continue']/parent::button")
+$x("//div[contains(text(),'Welcome to')]")
+```
+
+If `$x(...)` returns an empty array `[]`, the locator is wrong.
+If it returns an element, the locator is correct.
+
+### 13.5 Add a temporary pause
+
+To inspect the browser state before it closes, add a sleep in the test:
+
+```java
+actions.staticWait(5000); // wait 5 seconds
+```
+
+Place it before the assertion so you can see the page.
+
+### 13.6 Run a single test repeatedly
+
+While debugging, run only the failing test:
+
+```bash
+mvn test -Dtest=LoginTest#signInWithValidEmail
+```
+
+This saves time compared to running the whole suite.
+
+### 13.7 Common debugging scenarios
+
+#### Scenario 1: `NoSuchElementException`
+
+Cause: The element is not present or the locator is wrong.
+
+Debug steps:
+1. Check the screenshot in `screenshots/`.
+2. Test the XPath in Chrome DevTools console.
+3. Check if the element is inside an iframe: `actions.switchToFrame(...)`.
+4. Check if the element is in shadow DOM.
+5. Increase explicit wait in `qa.properties`:
+   ```properties
+   explicit.wait=30
+   ```
+
+#### Scenario 2: `TimeoutException`
+
+Cause: Element did not appear within the wait time.
+
+Debug steps:
+1. Check if the page loaded fully.
+2. Check the current URL: `actions.getCurrentUrl()`.
+3. Check the page title: `actions.getPageTitle()`.
+4. Look for loading spinners or slow APIs.
+
+#### Scenario 3: Test passes locally but fails on CI
+
+Cause: CI runs headless and may be slower.
+
+Debug steps:
+1. Run headless locally:
+   ```bash
+   mvn test -Dheadless=true
+   ```
+2. Increase waits.
+3. Check CI artifacts (screenshots, logs, ExtentReport).
+
+#### Scenario 4: Welcome toast not found
+
+Cause: Toast appears briefly or locator does not match.
+
+Debug steps:
+1. Add a screenshot right after clicking Continue:
+   ```java
+   loginPage.loginWithEmail(email);
+   actions.takeScreenshot("after_login");
+   ```
+2. Check the screenshot to see if the toast appeared.
+3. Test the toast XPath in DevTools immediately after login.
+4. If the toast disappears quickly, add an explicit wait before asserting.
+
+### 13.8 Debug checklist
+
+- [ ] Read the failure message in `reports/ExtentReport.html`.
+- [ ] Check the failure screenshot in `screenshots/`.
+- [ ] Read `logs/automation.log`.
+- [ ] Test locators in Chrome DevTools.
+- [ ] Set breakpoints in the IDE and step through.
+- [ ] Run only the failing test with `-Dtest=Class#method`.
+- [ ] Add temporary `System.out.println` or `actions.takeScreenshot(...)`.
+- [ ] Increase wait timeouts if the page is slow.
 

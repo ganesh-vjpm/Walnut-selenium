@@ -1,51 +1,56 @@
 name: Walnut Selenium CI
-
-on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
-
-jobs:
-  selenium-tests:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up JDK 26
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '26'
-          cache: 'maven'
-
-      - name: Set up Chrome
-        uses: browser-actions/setup-chrome@v1
-        with:
-          chrome-version: stable
-
-      - name: Run tests
-        run: mvn test -Dheadless=true -Denvironment=qa -Dmax.retries=1
-
-      - name: Upload ExtentReports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: extent-report
-          path: reports/ExtentReport.html
-
-      - name: Upload screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: screenshots
-          path: screenshots/
-
-      - name: Upload execution logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: logs
-          path: logs/automation.log
+  
+on:  
+  push:  
+    branches: [main, develop]  
+  pull_request:  
+    branches: [main, develop]  
+  
+jobs:  
+  selenium-tests:  
+    runs-on: ubuntu-latest  
+  
+    steps:  
+      - name: Checkout code  
+        uses: actions/checkout@v4  
+  
+      - name: Set up JDK 26  
+        uses: actions/setup-java@v4  
+        with:  
+          distribution: 'temurin'  
+          java-version: '26'  
+          cache: 'maven'  
+  
+      - name: Set up Chrome  
+        uses: browser-actions/setup-chrome@v1  
+        with:  
+          chrome-version: stable  
+  
+      - name: Run tests  
+        env:  
+          ENVIRONMENT: qa  
+          BROWSER: chrome  
+          HEADLESS: true  
+          MAX_RETRIES: 1  
+        run: mvn test -Dheadless=true -Denvironment=qa -Dmax.retries=1  
+  
+      - name: Upload ExtentReports  
+        if: always()  
+        uses: actions/upload-artifact@v4  
+        with:  
+          name: extent-report  
+          path: reports/ExtentReport.html  
+  
+      - name: Upload screenshots  
+        if: always()  
+        uses: actions/upload-artifact@v4  
+        with:  
+          name: screenshots  
+          path: screenshots/  
+  
+      - name: Upload execution logs  
+        if: always()  
+        uses: actions/upload-artifact@v4  
+        with:  
+          name: logs  
+          path: logs/automation.log  
