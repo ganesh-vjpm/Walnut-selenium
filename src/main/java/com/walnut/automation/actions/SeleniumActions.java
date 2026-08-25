@@ -286,6 +286,7 @@ public class SeleniumActions {
         return text;
     }
 
+    
     public String getAttribute(By locator, String attributeName) {
         String value = wait.until(ExpectedConditions.presenceOfElementLocated(locator)).getAttribute(attributeName);
         logger.info("Retrieved attribute '{}' = '{}' from element: {}", attributeName, value, locator);
